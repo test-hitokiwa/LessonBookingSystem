@@ -2270,11 +2270,27 @@
                 updateSyncStatus('🔄 データ同期中...');
                 console.log('データベースから全データを取得中...');
                 
-                const response = await fetch(`${DATABASE_API_URL}?action=getAllData`);
+                // URLにタイムスタンプを追加してキャッシュを回避
+                const timestamp = new Date().getTime();
+                const response = await fetch(`${DATABASE_API_URL}?_t=${timestamp}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    mode: 'cors',
+                    cache: 'no-cache'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const result = await response.json();
+                console.log('受信したデータ:', result);
                 
                 if (result.success) {
-                    const data = result.data;
+                    // データ構造を確認（result.data配下にデータがある場合に対応）
+                    const data = result.data || result;
                     instructors = data.instructors || [];
                     students = data.students || [];
                     coordinators = data.coordinators || [];
@@ -2285,6 +2301,7 @@
                     
                     lastSyncTime = new Date();
                     console.log('データベース同期完了:', lastSyncTime.toLocaleTimeString());
+                    console.log(`取得データ: 受講生${students.length}名, 講師${instructors.length}名, レッスン${lessons.length}件`);
                     updateSyncStatus(`✅ 最終同期: ${lastSyncTime.toLocaleTimeString()}`);
                     
                     // UIを更新
@@ -2297,8 +2314,8 @@
                 }
             } catch (error) {
                 console.error('データベース接続エラー:', error);
+                console.error('エラー詳細:', error.message);
                 updateSyncStatus('❌ 接続エラー - LocalStorageモード', true);
-                alert('データベースに接続できません。LocalStorageモードで起動します。');
                 loadFromLocalStorage();
             } finally {
                 isDatabaseSyncing = false;
@@ -2351,13 +2368,14 @@
                     instructorRatings
                 };
                 
+                // Google Apps Scriptにデータを送信（フォーム形式）
+                const formData = new URLSearchParams();
+                formData.append('action', 'syncAllData');
+                formData.append('data', JSON.stringify(data));
+                
                 const response = await fetch(DATABASE_API_URL, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        action: 'syncAllData',
-                        data: data
-                    })
+                    body: formData
                 });
                 
                 const result = await response.json();
