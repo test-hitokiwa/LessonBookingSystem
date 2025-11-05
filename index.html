@@ -2272,14 +2272,7 @@
                 
                 // URLにタイムスタンプを追加してキャッシュを回避
                 const timestamp = new Date().getTime();
-                const response = await fetch(`${DATABASE_API_URL}?_t=${timestamp}`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    mode: 'cors',
-                    cache: 'no-cache'
-                });
+                const response = await fetch(`${DATABASE_API_URL}?_t=${timestamp}`);
                 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
