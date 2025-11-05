@@ -1428,6 +1428,7 @@
         <div class="header">
             <h1>hitokiwaレッスン予約システム</h1>
             <p>Professional Lesson Booking System</p>
+            <div id="sync-status" style="margin-top: 10px; font-size: 0.9em; opacity: 0.8;"></div>
         </div>
 
         <div class="user-selector">
@@ -2217,17 +2218,30 @@
     </div>
 
     <script>
+        // ==========================================
+        // データベース設定（Apps Script URL）
+        // ==========================================
+        // ⚠️ 重要：database-apps-script.jsをデプロイ後、このURLを更新してください
+        const DATABASE_API_URL = 'https://script.google.com/macros/s/AKfycbxZMnEduQeG77z8I6x7UZl6kxB9IdVAJDY_Lt5Si9iiFOYulgTqf4hk9ykfintT3V6_HQ/exec';  // デプロイ後のApps Script URLをここに設定
+        
+        // データベース連携を有効にする（falseにするとLocalStorageモードになります）
+        const USE_DATABASE = true;
+        
+        // データベース同期状態
+        let isDatabaseSyncing = false;
+        let lastSyncTime = null;
+
         // グローバル変数
         let currentUser = 'instructor';
         let currentUserId = null;
         let currentCoordinatorId = null;
-        let instructors = JSON.parse(localStorage.getItem('instructors')) || [];
-        let students = JSON.parse(localStorage.getItem('students')) || [];
-        let coordinators = JSON.parse(localStorage.getItem('coordinators')) || [];
-        let lessons = JSON.parse(localStorage.getItem('lessons')) || [];
-        let bookings = JSON.parse(localStorage.getItem('bookings')) || [];
-        let ratings = JSON.parse(localStorage.getItem('ratings')) || [];
-        let instructorRatings = JSON.parse(localStorage.getItem('instructorRatings')) || [];
+        let instructors = [];
+        let students = [];
+        let coordinators = [];
+        let lessons = [];
+        let bookings = [];
+        let ratings = [];
+        let instructorRatings = [];
         let currentMonth = new Date().getMonth();
         let currentYear = new Date().getFullYear();
         let isBatchMode = false;
@@ -2235,9 +2249,209 @@
         let selectedRating = null;
         let currentInstructorRatingStudentId = null;
         let currentInstructorRatingLessonId = null;
+        
+        // ==========================================
+        // データベースAPI関数
+        // ==========================================
+        
+        /**
+         * データベースから全データを取得
+         */
+        async function loadAllDataFromDatabase() {
+            if (!USE_DATABASE || !DATABASE_API_URL) {
+                console.log('データベースモードが無効、またはURLが未設定です。LocalStorageから読み込みます。');
+                updateSyncStatus('⚠️ データベース未設定 - LocalStorageモード', true);
+                loadFromLocalStorage();
+                return;
+            }
+            
+            try {
+                isDatabaseSyncing = true;
+                updateSyncStatus('🔄 データ同期中...');
+                console.log('データベースから全データを取得中...');
+                
+                const response = await fetch(`${DATABASE_API_URL}?action=getAllData`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const data = result.data;
+                    instructors = data.instructors || [];
+                    students = data.students || [];
+                    coordinators = data.coordinators || [];
+                    lessons = data.lessons || [];
+                    bookings = data.bookings || [];
+                    ratings = data.ratings || [];
+                    instructorRatings = data.instructorRatings || [];
+                    
+                    lastSyncTime = new Date();
+                    console.log('データベース同期完了:', lastSyncTime.toLocaleTimeString());
+                    updateSyncStatus(`✅ 最終同期: ${lastSyncTime.toLocaleTimeString()}`);
+                    
+                    // UIを更新
+                    updateAllUI();
+                } else {
+                    console.error('データ取得エラー:', result.error);
+                    updateSyncStatus('❌ データ取得エラー - LocalStorageモード', true);
+                    alert('データベースからのデータ取得に失敗しました: ' + result.error);
+                    loadFromLocalStorage();
+                }
+            } catch (error) {
+                console.error('データベース接続エラー:', error);
+                updateSyncStatus('❌ 接続エラー - LocalStorageモード', true);
+                alert('データベースに接続できません。LocalStorageモードで起動します。');
+                loadFromLocalStorage();
+            } finally {
+                isDatabaseSyncing = false;
+            }
+        }
+        
+        /**
+         * LocalStorageからデータを読み込む（フォールバック用）
+         */
+        function loadFromLocalStorage() {
+            instructors = JSON.parse(localStorage.getItem('instructors')) || [];
+            students = JSON.parse(localStorage.getItem('students')) || [];
+            coordinators = JSON.parse(localStorage.getItem('coordinators')) || [];
+            lessons = JSON.parse(localStorage.getItem('lessons')) || [];
+            bookings = JSON.parse(localStorage.getItem('bookings')) || [];
+            ratings = JSON.parse(localStorage.getItem('ratings')) || [];
+            instructorRatings = JSON.parse(localStorage.getItem('instructorRatings')) || [];
+            console.log('LocalStorageからデータを読み込みました');
+        }
+        
+        /**
+         * 全UIを更新
+         */
+        function updateAllUI() {
+            generateTimeSlots();
+            updateInstructorSelect();
+            updateCalendar();
+            populateCoordinatorDropdowns();
+        }
+        
+        /**
+         * データベースに全データを同期保存
+         */
+        async function syncAllDataToDatabase() {
+            if (!USE_DATABASE || !DATABASE_API_URL || isDatabaseSyncing) {
+                return;
+            }
+            
+            try {
+                isDatabaseSyncing = true;
+                console.log('データベースに同期中...');
+                
+                const data = {
+                    instructors,
+                    students,
+                    coordinators,
+                    lessons,
+                    bookings,
+                    ratings,
+                    instructorRatings
+                };
+                
+                const response = await fetch(DATABASE_API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        action: 'syncAllData',
+                        data: data
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    lastSyncTime = new Date();
+                    console.log('データベース同期完了:', lastSyncTime.toLocaleTimeString());
+                    updateSyncStatus(`✅ 保存完了: ${lastSyncTime.toLocaleTimeString()}`);
+                } else {
+                    console.error('同期エラー:', result.error);
+                    updateSyncStatus('⚠️ 保存エラー', true);
+                }
+            } catch (error) {
+                console.error('同期中にエラー:', error);
+                updateSyncStatus('⚠️ 保存失敗', true);
+            } finally {
+                isDatabaseSyncing = false;
+            }
+        }
+        
+        /**
+         * データを保存（データベース or LocalStorage）
+         */
+        function saveData(dataType, data) {
+            // メモリ内のデータを更新
+            switch(dataType) {
+                case 'instructors':
+                    instructors = data;
+                    break;
+                case 'students':
+                    students = data;
+                    break;
+                case 'coordinators':
+                    coordinators = data;
+                    break;
+                case 'lessons':
+                    lessons = data;
+                    break;
+                case 'bookings':
+                    bookings = data;
+                    break;
+                case 'ratings':
+                    ratings = data;
+                    break;
+                case 'instructorRatings':
+                    instructorRatings = data;
+                    break;
+            }
+            
+            // LocalStorageにも保存（バックアップ）
+            localStorage.setItem(dataType, JSON.stringify(data));
+            
+            // データベースに同期（非同期）
+            if (USE_DATABASE && DATABASE_API_URL) {
+                syncAllDataToDatabase();
+            }
+        }
+        
+        /**
+         * 同期ステータス表示を更新
+         */
+        function updateSyncStatus(message, isError = false) {
+            const statusElement = document.getElementById('sync-status');
+            if (statusElement) {
+                statusElement.innerHTML = message;
+                statusElement.style.color = isError ? '#ffcccc' : 'white';
+            }
+        }
+        
+        /**
+         * 手動リフレッシュボタン
+         */
+        async function manualRefresh() {
+            if (!USE_DATABASE || !DATABASE_API_URL) {
+                alert('データベースモードが無効です');
+                return;
+            }
+            
+            if (confirm('データベースから最新データを取得しますか？\n（未保存の変更は失われます）')) {
+                await loadAllDataFromDatabase();
+                alert('データを更新しました！');
+            }
+        }
 
         // 初期化
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
+            // データベースモードの場合、最初にデータを取得
+            if (USE_DATABASE && DATABASE_API_URL) {
+                await loadAllDataFromDatabase();
+            } else {
+                // LocalStorageモードの場合
+                loadFromLocalStorage();
+            }
+            
             // デフォルトデータの初期化
             initializeDefaultData();
             
@@ -2269,6 +2483,14 @@
 
             // 星評価システムの初期化
             initializeStarRating();
+            
+            // 5分ごとの自動同期を開始
+            if (USE_DATABASE && DATABASE_API_URL) {
+                setInterval(async () => {
+                    console.log('自動同期を実行中...');
+                    await loadAllDataFromDatabase();
+                }, 300000); // 5分 = 300,000ミリ秒
+            }
         });
 
         // デフォルトデータの初期化
@@ -2296,7 +2518,7 @@
                     }
                 ];
                 instructors.push(...defaultInstructors);
-                localStorage.setItem('instructors', JSON.stringify(instructors));
+                saveData('instructors', instructors);
             }
 
             // デフォルト受講担当者を追加（存在しない場合のみ）
@@ -2325,7 +2547,7 @@
                     }
                 ];
                 coordinators.push(...defaultCoordinators);
-                localStorage.setItem('coordinators', JSON.stringify(coordinators));
+                saveData('coordinators', coordinators);
             }
 
             // デフォルト受講生を追加（存在しない場合のみ）
@@ -2361,7 +2583,7 @@
                     }
                 ];
                 students.push(...defaultStudents);
-                localStorage.setItem('students', JSON.stringify(students));
+                saveData('students', students);
             }
 
             // サンプルレッスンを追加（カレンダーテスト用）
@@ -2412,7 +2634,7 @@
                     }
                 ];
                 lessons.push(...sampleLessons);
-                localStorage.setItem('lessons', JSON.stringify(lessons));
+                saveData('lessons', lessons);
             }
         }
 
@@ -2807,7 +3029,7 @@
             };
             
             instructors.push(instructor);
-            localStorage.setItem('instructors', JSON.stringify(instructors));
+            saveData('instructors', instructors);
             
             document.getElementById('instructor-name').value = '';
             
@@ -2843,7 +3065,7 @@
             };
             
             students.push(student);
-            localStorage.setItem('students', JSON.stringify(students));
+            saveData('students', students);
             
             document.getElementById('new-student-id').value = '';
             document.getElementById('student-name').value = '';
@@ -2979,7 +3201,7 @@
             lessons.push(lesson);
             console.log('Lessons array after push:', lessons); // デバッグ用
             
-            localStorage.setItem('lessons', JSON.stringify(lessons));
+            saveData('lessons', lessons);
             console.log('Lessons saved to localStorage'); // デバッグ用
             
             if (addToCalendar) {
@@ -3041,7 +3263,7 @@
                 currentDate.setDate(currentDate.getDate() + 1);
             }
             
-            localStorage.setItem('lessons', JSON.stringify(lessons));
+            saveData('lessons', lessons);
             
             // バッチ作成後に全レッスン分のGoogleカレンダーリンクを表示
             if (addToCalendar && createdLessons.length > 0) {
@@ -3630,7 +3852,7 @@
                 showAlert('評価を送信しました', 'success');
             }
             
-            localStorage.setItem('ratings', JSON.stringify(ratings));
+            saveData('ratings', ratings);
             
             closeRatingModal();
             updateCompletedLessons();
@@ -3709,8 +3931,8 @@
             bookings.push(booking);
             lesson.bookedCount++;
             
-            localStorage.setItem('bookings', JSON.stringify(bookings));
-            localStorage.setItem('lessons', JSON.stringify(lessons));
+            saveData('bookings', bookings);
+            saveData('lessons', lessons);
             
             updateAvailableLessons();
             updateBookedLessons();
@@ -3731,8 +3953,8 @@
             
             bookings.splice(bookingIndex, 1);
             
-            localStorage.setItem('bookings', JSON.stringify(bookings));
-            localStorage.setItem('lessons', JSON.stringify(lessons));
+            saveData('bookings', bookings);
+            saveData('lessons', lessons);
             
             updateAvailableLessons();
             updateBookedLessons();
@@ -3747,7 +3969,7 @@
             const newLink = prompt('オンラインリンクを入力してください:', lesson.onlineLink || '');
             if (newLink !== null) {
                 lesson.onlineLink = newLink;
-                localStorage.setItem('lessons', JSON.stringify(lessons));
+                saveData('lessons', lessons);
                 updateCreatedLessons();
                 showAlert('オンラインリンクを更新しました', 'success');
             }
@@ -4024,9 +4246,9 @@
             );
             
             // データを保存
-            localStorage.setItem('bookings', JSON.stringify(bookings));
-            localStorage.setItem('ratings', JSON.stringify(ratings));
-            localStorage.setItem('instructorRatings', JSON.stringify(instructorRatings));
+            saveData('bookings', bookings);
+            saveData('ratings', ratings);
+            saveData('instructorRatings', instructorRatings);
             
             const removedBookings = originalBookingsCount - bookings.length;
             const removedRatings = originalRatingsCount - ratings.length;
@@ -4738,7 +4960,7 @@
             const newName = prompt('講師名を入力してください:', instructor.name);
             if (newName && newName.trim()) {
                 instructor.name = newName.trim();
-                localStorage.setItem('instructors', JSON.stringify(instructors));
+                saveData('instructors', instructors);
                 updateInstructorList();
                 updateInstructorSelect();
                 showAlert('講師情報を更新しました', 'success');
@@ -4756,8 +4978,8 @@
                 // 関連レッスンを削除
                 lessons = lessons.filter(l => l.instructorId !== instructorId);
                 
-                localStorage.setItem('instructors', JSON.stringify(instructors));
-                localStorage.setItem('lessons', JSON.stringify(lessons));
+                saveData('instructors', instructors);
+                saveData('lessons', lessons);
                 
                 updateInstructorList();
                 updateInstructorSelect();
@@ -4784,10 +5006,10 @@
                 // 関連評価を削除（講師から受講生へ）
                 instructorRatings = instructorRatings.filter(r => r.lessonId !== lessonId);
                 
-                localStorage.setItem('lessons', JSON.stringify(lessons));
-                localStorage.setItem('bookings', JSON.stringify(bookings));
-                localStorage.setItem('ratings', JSON.stringify(ratings));
-                localStorage.setItem('instructorRatings', JSON.stringify(instructorRatings));
+                saveData('lessons', lessons);
+                saveData('bookings', bookings);
+                saveData('ratings', ratings);
+                saveData('instructorRatings', instructorRatings);
                 
                 updateCreatedLessons();
                 updateCalendar();
@@ -5039,7 +5261,7 @@
                             bookedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() // 1日前
                         };
                         bookings.push(booking);
-                        localStorage.setItem('bookings', JSON.stringify(bookings));
+                        saveData('bookings', bookings);
                         console.log('✅ 評価可能にするためbookingを作成:', booking);
                     }
                     
@@ -5057,14 +5279,14 @@
                             
                             targetLesson.date = pastDateStr;
                             targetLesson.time = pastTimeStr;
-                            localStorage.setItem('lessons', JSON.stringify(lessons));
+                            saveData('lessons', lessons);
                             console.log('✅ レッスンを過去日時に変更:', targetLesson);
                         }
                     }
                 }
                 
                 // ratingsを保存
-                localStorage.setItem('ratings', JSON.stringify(ratings));
+                saveData('ratings', ratings);
                 
                 showAlert('受講生評価を更新しました', 'success');
             } else {
@@ -5102,10 +5324,10 @@
                 }
                 // 新規作成で不参加以外の場合は、ratings配列への追加は行わない（受講生が自分で評価する）
                 
-                localStorage.setItem('ratings', JSON.stringify(ratings));
+                saveData('ratings', ratings);
             }
             
-            localStorage.setItem('instructorRatings', JSON.stringify(instructorRatings));
+            saveData('instructorRatings', instructorRatings);
             
             closeInstructorRatingModal();
             
@@ -5423,7 +5645,7 @@
             students[studentIndex].level = level;
             students[studentIndex].coordinatorId = coordinatorId;
             
-            localStorage.setItem('students', JSON.stringify(students));
+            saveData('students', students);
             
             showAlert('受講生情報を更新しました', 'success');
             closeModal();
@@ -5485,7 +5707,7 @@
             
             students[studentIndex].level = level;
             
-            localStorage.setItem('students', JSON.stringify(students));
+            saveData('students', students);
             
             showAlert('日本語レベルを更新しました', 'success');
             closeModal();
@@ -5524,10 +5746,10 @@
             }
             
             // LocalStorageを更新
-            localStorage.setItem('students', JSON.stringify(students));
-            localStorage.setItem('bookings', JSON.stringify(bookings));
-            localStorage.setItem('ratings', JSON.stringify(ratings));
-            localStorage.setItem('instructorRatings', JSON.stringify(instructorRatings));
+            saveData('students', students);
+            saveData('bookings', bookings);
+            saveData('ratings', ratings);
+            saveData('instructorRatings', instructorRatings);
             
             showAlert(`受講生「${student.name}」と関連データを削除しました\n・予約: ${bookingsToRemove.length}件削除`, 'success');
             
@@ -5721,7 +5943,7 @@
             });
             
             localStorage.setItem('coordinators', JSON.stringify(coordinators));
-            localStorage.setItem('students', JSON.stringify(students));
+            saveData('students', students);
             
             showAlert(`担当者「${coordinator.name}」を削除しました`, 'success');
             updateAdminCoordinatorList();
@@ -5982,7 +6204,7 @@
             lesson.onlineLink = newOnlineLink;
             
             // ローカルストレージに保存
-            localStorage.setItem('lessons', JSON.stringify(lessons));
+            saveData('lessons', lessons);
             
             // 表示を更新
             updateCreatedLessons();
@@ -5995,8 +6217,14 @@
         }
 
         // ページ更新関数
-        function refreshPage() {
-            location.reload();
+        async function refreshPage() {
+            if (USE_DATABASE && DATABASE_API_URL) {
+                // データベースモードの場合は手動リフレッシュ
+                await manualRefresh();
+            } else {
+                // LocalStorageモードの場合はページリロード
+                location.reload();
+            }
         }
 
         // カレンダー機能
@@ -6492,7 +6720,7 @@
                 });
                 
                 // LocalStorageに保存
-                localStorage.setItem('students', JSON.stringify(students));
+                saveData('students', students);
                 
                 // 担当者未登録の受講生を確認
                 const unassignedCoordinators = students.filter(s => {
@@ -6721,10 +6949,10 @@ ${inactiveStudents.map(s => `・${s.id}: ${s.name}`).join('\n')}
                 });
                 
                 // LocalStorageを更新
-                localStorage.setItem('students', JSON.stringify(students));
-                localStorage.setItem('bookings', JSON.stringify(bookings));
-                localStorage.setItem('ratings', JSON.stringify(ratings));
-                localStorage.setItem('instructorRatings', JSON.stringify(instructorRatings));
+                saveData('students', students);
+                saveData('bookings', bookings);
+                saveData('ratings', ratings);
+                saveData('instructorRatings', instructorRatings);
                 
                 const message = `${deletedCount}名の受講生と関連データを削除しました`;
                 showSyncStatus(message, 'success');
