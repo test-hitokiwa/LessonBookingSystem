@@ -4182,11 +4182,16 @@
                 card.innerHTML = `
                     <h4>${student.id}：${student.name}</h4>
                     <div class="lesson-info">
-                        <span>レベル: ${student.level}</span>
+                        <span>レベル: ${student.level || '<span style="color: #999;">未設定</span>'}</span>
                         <span>予約数: ${studentBookings.length}</span>
                         <span class="${isLowRating ? 'low-rating' : ''}">平均評価: ${avgRatingDisplay}</span>
                         <span class="${isHighAbsence ? 'high-absence' : ''}">欠席回数: ${absenceCount}回</span>
                         <span>登録日: ${new Date(student.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <button class="btn btn-primary" onclick="editStudentCoordinator('${student.id}')">
+                            編集
+                        </button>
                     </div>
                 `;
                 container.appendChild(card);
@@ -4213,11 +4218,16 @@
                     card.innerHTML = `
                         <h4>${student.id}：${student.name}</h4>
                         <div class="lesson-info">
-                            <span>レベル: ${student.level}</span>
+                            <span>レベル: ${student.level || '<span style="color: #999;">未設定</span>'}</span>
                             <span>予約数: ${studentBookings.length}</span>
                             <span class="${isLowRating ? 'low-rating' : ''}">平均評価: ${avgRatingDisplay}</span>
                             <span class="${isHighAbsence ? 'high-absence' : ''}">欠席回数: ${absenceCount}回</span>
                             <span>登録日: ${new Date(student.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        <div style="margin-top: 15px;">
+                            <button class="btn btn-primary" onclick="editStudentCoordinator('${student.id}')">
+                                編集
+                            </button>
                         </div>
                     `;
                     attendedSection.appendChild(card);
@@ -4356,7 +4366,7 @@
                     <h4>${student.name} (${student.id})</h4>
                     <div class="problem-types">問題: ${problemTypes.join('・')}</div>
                     <div class="lesson-info">
-                        <span>レベル: ${student.level}</span>
+                        <span>レベル: ${student.level || '<span style="color: #999;">未設定</span>'}</span>
                         ${detailsHtml}
                     </div>
                 `;
@@ -5324,7 +5334,7 @@
                 card.innerHTML = `
                     <h4>${student.name} (${student.id})</h4>
                     <div class="lesson-info">
-                        <span>レベル: ${student.level}</span>
+                        <span>レベル: ${student.level || '<span style="color: #999;">未設定</span>'}</span>
                         <span>担当者: ${coordinatorName}</span>
                         <span>予約数: ${studentBookings.length}件</span>
                         <span>受講済み: ${studentRatings.length}件</span>
@@ -5365,6 +5375,7 @@
                     <div class="form-group">
                         <label>日本語レベル</label>
                         <select id="edit-student-level">
+                            <option value="" ${!student.level ? 'selected' : ''}>未設定</option>
                             <option value="N1" ${student.level === 'N1' ? 'selected' : ''}>N1</option>
                             <option value="N2" ${student.level === 'N2' ? 'selected' : ''}>N2</option>
                             <option value="N3" ${student.level === 'N3' ? 'selected' : ''}>N3</option>
@@ -5418,6 +5429,67 @@
             closeModal();
             updateAdminStudentList();
             updateSystemOverview();
+        }
+        
+        // 受講生担当用の受講生編集
+        function editStudentCoordinator(studentId) {
+            const student = students.find(s => s.id === studentId);
+            if (!student) return;
+            
+            const modalContent = `
+                <div class="modal-header">
+                    <h3>受講生情報編集</h3>
+                    <button onclick="closeModal()" class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>受講生ID（変更不可）</label>
+                        <input type="text" value="${student.id}" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label>名前（変更不可）</label>
+                        <input type="text" value="${student.name}" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label>日本語レベル</label>
+                        <select id="edit-student-level-coord">
+                            <option value="" ${!student.level ? 'selected' : ''}>未設定</option>
+                            <option value="N1" ${student.level === 'N1' ? 'selected' : ''}>N1</option>
+                            <option value="N2" ${student.level === 'N2' ? 'selected' : ''}>N2</option>
+                            <option value="N3" ${student.level === 'N3' ? 'selected' : ''}>N3</option>
+                            <option value="N4" ${student.level === 'N4' ? 'selected' : ''}>N4</option>
+                            <option value="N5" ${student.level === 'N5' ? 'selected' : ''}>N5</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveStudentEditCoordinator('${student.id}')">
+                        保存
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeModal()">
+                        キャンセル
+                    </button>
+                </div>
+            `;
+            
+            showModal(modalContent);
+        }
+        
+        // 受講生担当用の受講生編集保存
+        function saveStudentEditCoordinator(studentId) {
+            const level = document.getElementById('edit-student-level-coord').value;
+            
+            const studentIndex = students.findIndex(s => s.id === studentId);
+            if (studentIndex === -1) {
+                showAlert('受講生が見つかりません', 'error');
+                return;
+            }
+            
+            students[studentIndex].level = level;
+            
+            localStorage.setItem('students', JSON.stringify(students));
+            
+            showAlert('日本語レベルを更新しました', 'success');
+            closeModal();
+            updateAllStudentsList();
         }
         
         // 管理者用受講生削除
@@ -6397,7 +6469,7 @@
                         students[existingIndex] = {
                             id: newStudent.id,
                             name: newStudent.name,
-                            level: newStudent.level || students[existingIndex].level || 'N5',
+                            level: newStudent.level || students[existingIndex].level || '',  // 空欄のまま（自動でN5にしない）
                             coordinatorId: newStudent.coordinatorId || null,  // スプレッドシートの値を常に反映（担当者未登録でも保存）
                             email: newStudent.email || students[existingIndex].email || '',
                             phone: newStudent.phone || students[existingIndex].phone || '',
@@ -6409,7 +6481,7 @@
                         students.push({
                             id: newStudent.id,
                             name: newStudent.name,
-                            level: newStudent.level || 'N5',
+                            level: newStudent.level || '',  // 空欄のまま（自動でN5にしない）
                             coordinatorId: newStudent.coordinatorId || null,  // 担当者未登録でも担当者IDを保存
                             email: newStudent.email || '',
                             phone: newStudent.phone || '',
