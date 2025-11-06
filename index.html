@@ -1496,10 +1496,6 @@
                 <i></i>
                 <span>全レッスン一覧</span>
             </button>
-            <button class="tab-btn" onclick="switchTab('student-registration')">
-                <i></i>
-                <span>受講生情報登録</span>
-            </button>
             <button class="tab-btn" onclick="switchTab('lesson-calendar')">
                 <i></i>
                 <span>カレンダー</span>
@@ -1831,43 +1827,6 @@
                             <h3 style="margin-top: 30px; padding-top: 20px; border-top: 2px solid rgba(255,255,255,0.3);">終了済みレッスン</h3>
                             <div id="past-lessons-content"></div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- 受講生情報登録タブ（移動） -->
-                <div class="tab-content" id="student-registration">
-                    <div class="section">
-                        <h2>受講生情報登録 (Student Registration)</h2>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>登録番号 (Registration ID)</label>
-                                <input type="text" id="new-student-id" placeholder="例：STU001">
-                            </div>
-                            <div class="form-group">
-                                <label>氏名 (Name - アルファベット大文字)</label>
-                                <input type="text" id="student-name" class="uppercase-input" placeholder="例：TANAKA TARO">
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>日本語レベル (Japanese Level) - 任意</label>
-                                <select id="student-level">
-                                    <option value="">未設定</option>
-                                    <option value="N1">N1 (上級)</option>
-                                    <option value="N2">N2 (中上級)</option>
-                                    <option value="N3">N3 (中級)</option>
-                                    <option value="N4">N4 (初中級)</option>
-                                    <option value="N5">N5 (初級)</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>担当者 (Coordinator)</label>
-                                <select id="student-coordinator">
-                                    <option value="">未割り当て</option>
-                                </select>
-                            </div>
-                        </div>
-                        <button class="btn" onclick="addStudent()">受講生追加 (Add Student)</button>
                     </div>
                 </div>
 
@@ -2402,12 +2361,13 @@
          */
         async function syncAllDataToDatabase() {
             if (!USE_DATABASE || !DATABASE_API_URL || isDatabaseSyncing) {
+                console.log('[スキップ] 同期条件不一致:', {USE_DATABASE, DATABASE_API_URL: !!DATABASE_API_URL, isDatabaseSyncing});
                 return;
             }
             
             try {
                 isDatabaseSyncing = true;
-                console.log('データベースに同期中...');
+                console.log('[開始] データベースに同期中...');
                 
                 const data = {
                     instructors,
@@ -2420,6 +2380,10 @@
                     attendanceRequests,
                     attendanceRecords
                 };
+                
+                // 送信前のデータ確認
+                console.log('[送信前] 予約データ件数:', bookings.length);
+                console.log('[送信前] 予約データ:', bookings.map(b => ({id: b.id, studentId: b.studentId, lessonId: b.lessonId})));
                 
                 // Google Apps Scriptにデータを送信（フォーム形式）
                 const formData = new URLSearchParams();
@@ -2449,7 +2413,7 @@
                     updateSyncStatus('[警告] 保存エラー: ' + result.error, true);
                 }
             } catch (error) {
-                console.error('同期中にエラー:', error);
+                console.error('[エラー] 同期中にエラー:', error);
                 updateSyncStatus('[警告] 保存失敗', true);
             } finally {
                 isDatabaseSyncing = false;
@@ -3160,45 +3124,6 @@
             updateInstructorList();
             updateInstructorSelect();
             showAlert('講師を追加しました', 'success');
-        }
-
-        // 受講者追加（受講生担当ページ用）
-        function addStudent() {
-            const id = document.getElementById('new-student-id').value.trim();
-            const name = document.getElementById('student-name').value.trim();
-            const level = document.getElementById('student-level').value || '未設定';
-            const coordinatorId = document.getElementById('student-coordinator').value || null;
-            
-            if (!id || !name) {
-                showAlert('受講生IDと名前を入力してください', 'error');
-                return;
-            }
-            
-            // 重複チェック
-            if (students.find(s => s.id === id)) {
-                showAlert('この登録番号は既に使用されています', 'error');
-                return;
-            }
-            
-            const student = {
-                id: id,
-                name: name.toUpperCase(),
-                level: level,
-                coordinatorId: coordinatorId,
-                password: id,  // パスワードはIDと同じ
-                createdAt: new Date().toISOString()
-            };
-            
-            students.push(student);
-            saveData('students', students);
-            
-            document.getElementById('new-student-id').value = '';
-            document.getElementById('student-name').value = '';
-            document.getElementById('student-level').value = '';
-            document.getElementById('student-coordinator').value = '';
-            
-            showAlert('受講者を追加しました', 'success');
-            updateCoordinatorDashboard();
         }
 
         // 管理者ログイン（新規追加）
