@@ -1924,19 +1924,15 @@
                 <!-- 管理者用タブナビゲーション -->
                 <div class="tab-navigation show">
                     <button class="tab-btn active" onclick="switchAdminTab('admin-evaluations')">
-                        <span>📊</span>
                         <span>全評価一覧</span>
                     </button>
                     <button class="tab-btn" onclick="switchAdminTab('admin-overview')">
-                        <span>📈</span>
                         <span>システム概要</span>
                     </button>
                     <button class="tab-btn" onclick="switchAdminTab('admin-students')">
-                        <span>👥</span>
                         <span>受講生管理</span>
                     </button>
                     <button class="tab-btn" onclick="switchAdminTab('admin-coordinators')">
-                        <span>👨‍💼</span>
                         <span>担当者管理</span>
                     </button>
                 </div>
@@ -2071,7 +2067,7 @@
                         
                         <!-- スプレッドシート連携 -->
                         <div style="margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%); border-radius: 12px; border: 2px solid rgba(59, 130, 246, 0.3);">
-                            <h3 style="margin-bottom: 15px; color: #3b82f6;">📊 Google Sheets連携</h3>
+                            <h3 style="margin-bottom: 15px; color: #3b82f6;">Google Sheets連携</h3>
                             
                             <div style="margin-bottom: 20px;">
                                 <label style="display: block; margin-bottom: 8px; font-weight: 600;">Apps Script URL:</label>
@@ -2084,13 +2080,13 @@
                             
                             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                                 <button class="btn btn-primary" onclick="syncStudentsFromGoogleSheets()" style="flex: 1; min-width: 200px;">
-                                    🔄 受講生を同期（ステータス: 求職中）
+                                    受講生を同期（ステータス: 求職中）
                                 </button>
                                 <button class="btn btn-secondary" onclick="sendAttendanceToGoogleSheets()" style="flex: 1; min-width: 200px;">
-                                    📤 出席・評価データを送信
+                                    出席・評価データを送信
                                 </button>
                                 <button class="btn btn-danger" onclick="removeInactiveStudents()" style="flex: 1; min-width: 200px;">
-                                    🗑️ ステータス変更者を削除
+                                    ステータス変更者を削除
                                 </button>
                             </div>
                             
@@ -2099,7 +2095,7 @@
                             </div>
                             
                             <details style="margin-top: 15px;">
-                                <summary style="cursor: pointer; color: #3b82f6; font-weight: 600;">📖 使い方ガイド</summary>
+                                <summary style="cursor: pointer; color: #3b82f6; font-weight: 600;">使い方ガイド</summary>
                                 <div style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.5); border-radius: 6px; font-size: 13px;">
                                     <h4>1. Google Apps Scriptの設定</h4>
                                     <ol>
@@ -2242,7 +2238,7 @@
         // ==========================================
         // データベース設定（Apps Script URL）
         // ==========================================
-        // ⚠️ 重要：database-apps-script.jsをデプロイ後、このURLを更新してください
+        // [重要] database-apps-script.jsをデプロイ後、このURLを更新してください
         const DATABASE_API_URL = 'https://script.google.com/macros/s/AKfycbxRNjf6vR3CdktPcS_SX_14bK8SVDgi-4a67c59tjJH0Yd9PMNS6WVsPCAj4VDhOxz5ng/exec';  // デプロイ後のApps Script URLをここに設定
         
         // データベース連携を有効にする（falseにするとLocalStorageモードになります）
@@ -2283,14 +2279,14 @@
         async function loadAllDataFromDatabase() {
             if (!USE_DATABASE || !DATABASE_API_URL) {
                 console.log('データベースモードが無効、またはURLが未設定です。LocalStorageから読み込みます。');
-                updateSyncStatus('⚠️ データベース未設定 - LocalStorageモード', true);
+                updateSyncStatus('[警告] データベース未設定 - LocalStorageモード', true);
                 loadFromLocalStorage();
                 return;
             }
             
             try {
                 isDatabaseSyncing = true;
-                updateSyncStatus('🔄 データ同期中...');
+                updateSyncStatus('データ同期中...');
                 console.log('データベースから全データを取得中...');
                 
                 // URLにタイムスタンプを追加してキャッシュを回避
@@ -2318,8 +2314,8 @@
                     attendanceRecords = data.attendanceRecords || [];
                     
                     lastSyncTime = new Date();
-                    console.log('✅ データベース同期完了:', lastSyncTime.toLocaleTimeString());
-                    console.log('📊 取得データ詳細:', {
+                    console.log('[完了] データベース同期完了:', lastSyncTime.toLocaleTimeString());
+                    console.log('[データ] 取得データ詳細:', {
                         受講生: students.length,
                         講師: instructors.length,
                         担当者: coordinators.length,
@@ -2331,7 +2327,7 @@
                     
                     // レッスンの詳細をログ出力（デバッグ用）
                     if (lessons.length > 0) {
-                        console.log('📝 レッスン一覧:', lessons.map(l => ({
+                        console.log('[データ] レッスン一覧:', lessons.map(l => ({
                             id: l.id,
                             日付: l.date,
                             時刻: l.time,
@@ -2340,20 +2336,20 @@
                         })));
                     }
                     
-                    updateSyncStatus(`✅ 最終同期: ${lastSyncTime.toLocaleTimeString()}`);
+                    updateSyncStatus(`最終同期: ${lastSyncTime.toLocaleTimeString()}`);
                     
                     // UIを更新
                     updateAllUI();
                 } else {
                     console.error('データ取得エラー:', result.error);
-                    updateSyncStatus('❌ データ取得エラー - LocalStorageモード', true);
+                    updateSyncStatus('[エラー] データ取得エラー - LocalStorageモード', true);
                     alert('データベースからのデータ取得に失敗しました: ' + result.error);
                     loadFromLocalStorage();
                 }
             } catch (error) {
                 console.error('データベース接続エラー:', error);
                 console.error('エラー詳細:', error.message);
-                updateSyncStatus('❌ 接続エラー - LocalStorageモード', true);
+                updateSyncStatus('[エラー] 接続エラー - LocalStorageモード', true);
                 loadFromLocalStorage();
             } finally {
                 isDatabaseSyncing = false;
@@ -2439,22 +2435,22 @@
                 
                 if (result.success) {
                     lastSyncTime = new Date();
-                    console.log('✅ データベース保存完了:', lastSyncTime.toLocaleTimeString());
-                    console.log('💾 保存されたデータ:', {
+                    console.log('[完了] データベース保存完了:', lastSyncTime.toLocaleTimeString());
+                    console.log('[データ] 保存されたデータ:', {
                         講師: instructors.length,
                         受講生: students.length,
                         担当者: coordinators.length,
                         レッスン: lessons.length,
                         予約: bookings.length
                     });
-                    updateSyncStatus(`✅ 保存完了: ${lastSyncTime.toLocaleTimeString()}`);
+                    updateSyncStatus(`保存完了: ${lastSyncTime.toLocaleTimeString()}`);
                 } else {
-                    console.error('❌ 同期エラー:', result.error);
-                    updateSyncStatus('⚠️ 保存エラー: ' + result.error, true);
+                    console.error('[エラー] 同期エラー:', result.error);
+                    updateSyncStatus('[警告] 保存エラー: ' + result.error, true);
                 }
             } catch (error) {
                 console.error('同期中にエラー:', error);
-                updateSyncStatus('⚠️ 保存失敗', true);
+                updateSyncStatus('[警告] 保存失敗', true);
             } finally {
                 isDatabaseSyncing = false;
             }
@@ -2663,6 +2659,7 @@
                         name: 'YAMADA HANAKO',
                         level: 'N3',
                         coordinatorId: 'coord001',
+                        password: 'STU001',  // パスワードはIDと同じ
                         createdAt: new Date().toISOString()
                     },
                     {
@@ -2670,6 +2667,7 @@
                         name: 'CHEN WEI',
                         level: 'N2',
                         coordinatorId: 'coord001',
+                        password: 'STU002',  // パスワードはIDと同じ
                         createdAt: new Date().toISOString()
                     },
                     {
@@ -2677,6 +2675,7 @@
                         name: 'PARK JIHOON',
                         level: 'N4',
                         coordinatorId: 'coord002',
+                        password: 'STU003',  // パスワードはIDと同じ
                         createdAt: new Date().toISOString()
                     },
                     {
@@ -2684,6 +2683,7 @@
                         name: 'NGUYEN ANH',
                         level: 'N1',
                         coordinatorId: 'coord002',
+                        password: 'STU004',  // パスワードはIDと同じ
                         createdAt: new Date().toISOString()
                     }
                 ];
@@ -2740,6 +2740,20 @@
                 ];
                 lessons.push(...sampleLessons);
                 saveData('lessons', lessons);
+            }
+            
+            // 【マイグレーション】既存受講生にパスワードフィールドを追加
+            let passwordMigrationNeeded = false;
+            students.forEach(student => {
+                if (!student.password) {
+                    student.password = student.id;  // パスワードをIDと同じに設定
+                    passwordMigrationNeeded = true;
+                }
+            });
+            
+            if (passwordMigrationNeeded) {
+                saveData('students', students);
+                console.log('[完了] 受講生パスワードマイグレーション完了');
             }
         }
 
@@ -3045,7 +3059,10 @@
             // 登録済み受講生IDの確認
             const studentExists = students.find(s => s.id === id);
             
-            if (studentExists && password === 'student123') {
+            // パスワード照合（受講生のpasswordフィールド、なければIDと同じ）
+            const correctPassword = studentExists?.password || studentExists?.id;
+            
+            if (studentExists && password === correctPassword) {
                 currentUserId = id;
                 document.getElementById('student-login').classList.add('hide');
                 document.getElementById('student-panel').classList.remove('hide');
@@ -3168,6 +3185,7 @@
                 name: name.toUpperCase(),
                 level: level,
                 coordinatorId: coordinatorId,
+                password: id,  // パスワードはIDと同じ
                 createdAt: new Date().toISOString()
             };
             
@@ -3691,7 +3709,7 @@
                 return;
             }
             
-            console.log('🔍 レッスン表示デバッグ:', {
+            console.log('[デバッグ] レッスン表示デバッグ:', {
                 totalLessons: lessons.length,
                 currentUserId: currentUserId,
                 totalBookings: bookings.length
@@ -4172,7 +4190,7 @@
 
         // 全画面を強制更新する関数
         function refreshAllScreens() {
-            console.log('🔄 全画面更新を開始...');
+            console.log('[開始] 全画面更新を開始...');
             
             try {
                 // データ再読み込み（LocalStorageから最新状態を取得）
@@ -4232,9 +4250,9 @@
                     updateAdminPoorRatings();
                 }
                 
-                console.log('✅ 全画面更新完了');
+                console.log('[完了] 全画面更新完了');
             } catch (error) {
-                console.error('❌ 画面更新エラー:', error);
+                console.error('[エラー] 画面更新エラー:', error);
             }
         }
 
@@ -4263,7 +4281,7 @@
                     lessons: lessons.length
                 });
             } catch (error) {
-                console.error('❌ データ再読み込みエラー:', error);
+                console.error('[エラー] データ再読み込みエラー:', error);
             }
         }
 
@@ -5329,7 +5347,7 @@
                     r.lessonId === currentInstructorRatingLessonId && r.studentId === currentInstructorRatingStudentId
                 );
                 
-                console.log('🔄 講師評価更新:', {
+                console.log('[更新] 講師評価更新:', {
                     oldAttitude: oldAttitude,
                     newAttitude: attitude,
                     existingStudentRating: existingStudentRating ? existingStudentRating.rating : 'なし'
@@ -5341,7 +5359,7 @@
                         // 既存の受講生評価があれば削除
                         const studentRatingIndex = ratings.findIndex(r => r.id === existingStudentRating.id);
                         if (studentRatingIndex !== -1) {
-                            console.log('🗑️ 不参加のため受講生評価を削除:', existingStudentRating);
+                            console.log('[削除] 不参加のため受講生評価を削除:', existingStudentRating);
                             ratings.splice(studentRatingIndex, 1);
                         }
                     }
@@ -5351,7 +5369,7 @@
                     if (existingStudentRating) {
                         const studentRatingIndex = ratings.findIndex(r => r.id === existingStudentRating.id);
                         if (studentRatingIndex !== -1) {
-                            console.log('🗑️ 不参加評価を削除:', existingStudentRating);
+                            console.log('[削除] 不参加評価を削除:', existingStudentRating);
                             ratings.splice(studentRatingIndex, 1);
                         }
                     }
@@ -5373,7 +5391,7 @@
                         };
                         bookings.push(booking);
                         saveData('bookings', bookings);
-                        console.log('✅ 評価可能にするためbookingを作成:', booking);
+                        console.log('[完了] 評価可能にするためbookingを作成:', booking);
                     }
                     
                     // 対象レッスンが過去のレッスンとして認識されるよう確実にする
@@ -5391,7 +5409,7 @@
                             targetLesson.date = pastDateStr;
                             targetLesson.time = pastTimeStr;
                             saveData('lessons', lessons);
-                            console.log('✅ レッスンを過去日時に変更:', targetLesson);
+                            console.log('[完了] レッスンを過去日時に変更:', targetLesson);
                         }
                     }
                 }
@@ -5427,7 +5445,7 @@
                         // 既存の受講生評価があれば削除
                         const studentRatingIndex = ratings.findIndex(r => r.id === existingStudentRating.id);
                         if (studentRatingIndex !== -1) {
-                            console.log('🗑️ 不参加のため受講生評価を削除:', existingStudentRating);
+                            console.log('[削除] 不参加のため受講生評価を削除:', existingStudentRating);
                             ratings.splice(studentRatingIndex, 1);
                         }
                     }
@@ -6804,6 +6822,7 @@
                     if (existingIndex >= 0) {
                         // 既存データを更新（スプレッドシートの情報を優先）
                         const createdAt = students[existingIndex].createdAt || new Date().toISOString();
+                        const existingPassword = students[existingIndex].password || students[existingIndex].id;  // 既存パスワードを保持
                         students[existingIndex] = {
                             id: newStudent.id,
                             name: newStudent.name,
@@ -6811,6 +6830,7 @@
                             coordinatorId: newStudent.coordinatorId || null,  // スプレッドシートの値を常に反映（担当者未登録でも保存）
                             email: newStudent.email || students[existingIndex].email || '',
                             phone: newStudent.phone || students[existingIndex].phone || '',
+                            password: existingPassword,  // 既存パスワードを保持
                             createdAt: createdAt
                         };
                         updatedCount++;
@@ -6823,6 +6843,7 @@
                             coordinatorId: newStudent.coordinatorId || null,  // 担当者未登録でも担当者IDを保存
                             email: newStudent.email || '',
                             phone: newStudent.phone || '',
+                            password: newStudent.id,  // パスワードはIDと同じ
                             createdAt: new Date().toISOString()
                         });
                         addedCount++;
@@ -6840,7 +6861,7 @@
                 let message = `同期完了: 新規${addedCount}名、更新${updatedCount}名（合計${result.count}名）`;
                 if (unassignedCoordinators.length > 0) {
                     const uniqueCoordIds = [...new Set(unassignedCoordinators.map(s => s.coordinatorId))];
-                    message += `\n\n⚠️ 注意: 担当者が未登録のID: ${uniqueCoordIds.join(', ')}`;
+                    message += `\n\n[注意] 担当者が未登録のID: ${uniqueCoordIds.join(', ')}`;
                     message += `\n担当者管理タブで該当IDの担当者を登録すると、自動的に割り当てられます。`;
                 }
                 
@@ -7090,7 +7111,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    console.log(`✅ 自動送信完了: ${result.count}件の出席・評価データを送信しました`);
+                    console.log(`[完了] 自動送信完了: ${result.count}件の出席・評価データを送信しました`);
                 } else {
                     console.error('自動送信エラー:', result.error);
                 }
