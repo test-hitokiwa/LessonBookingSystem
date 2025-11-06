@@ -2242,6 +2242,8 @@
         let bookings = [];
         let ratings = [];
         let instructorRatings = [];
+        let attendanceRequests = [];  // 同席依頼データ
+        let attendanceRecords = [];   // 同席記録データ
         let currentMonth = new Date().getMonth();
         let currentYear = new Date().getFullYear();
         let isBatchMode = false;
@@ -2291,6 +2293,8 @@
                     bookings = data.bookings || [];
                     ratings = data.ratings || [];
                     instructorRatings = data.instructorRatings || [];
+                    attendanceRequests = data.attendanceRequests || [];
+                    attendanceRecords = data.attendanceRecords || [];
                     
                     lastSyncTime = new Date();
                     console.log('データベース同期完了:', lastSyncTime.toLocaleTimeString());
@@ -2326,6 +2330,8 @@
             bookings = JSON.parse(localStorage.getItem('bookings')) || [];
             ratings = JSON.parse(localStorage.getItem('ratings')) || [];
             instructorRatings = JSON.parse(localStorage.getItem('instructorRatings')) || [];
+            attendanceRequests = JSON.parse(localStorage.getItem('attendanceRequests')) || [];
+            attendanceRecords = JSON.parse(localStorage.getItem('attendanceRecords')) || [];
             console.log('LocalStorageからデータを読み込みました');
         }
         
@@ -2358,7 +2364,9 @@
                     lessons,
                     bookings,
                     ratings,
-                    instructorRatings
+                    instructorRatings,
+                    attendanceRequests,
+                    attendanceRecords
                 };
                 
                 // Google Apps Scriptにデータを送信（フォーム形式）
@@ -2415,6 +2423,12 @@
                     break;
                 case 'instructorRatings':
                     instructorRatings = data;
+                    break;
+                case 'attendanceRequests':
+                    attendanceRequests = data;
+                    break;
+                case 'attendanceRecords':
+                    attendanceRecords = data;
                     break;
             }
             
@@ -3864,6 +3878,9 @@
             }
             
             saveData('ratings', ratings);
+            
+            // Google Sheetsへ自動送信
+            autoSendAttendanceToGoogleSheets();
             
             closeRatingModal();
             updateCompletedLessons();
@@ -5340,6 +5357,9 @@
             
             saveData('instructorRatings', instructorRatings);
             
+            // Google Sheetsへ自動送信
+            autoSendAttendanceToGoogleSheets();
+            
             closeInstructorRatingModal();
             
             // 確実な画面更新のために少し遅延を入れる
@@ -5751,10 +5771,8 @@
             instructorRatings = instructorRatings.filter(r => r.studentId !== studentId);
             
             // 関連する同席依頼を削除
-            if (typeof attendanceRequests !== 'undefined') {
-                attendanceRequests = attendanceRequests.filter(r => r.studentId !== studentId);
-                localStorage.setItem('attendanceRequests', JSON.stringify(attendanceRequests));
-            }
+            attendanceRequests = attendanceRequests.filter(r => r.studentId !== studentId);
+            saveData('attendanceRequests', attendanceRequests);
             
             // LocalStorageを更新
             saveData('students', students);
@@ -5842,7 +5860,7 @@
             };
             
             coordinators.push(coordinator);
-            localStorage.setItem('coordinators', JSON.stringify(coordinators));
+            saveData('coordinators', coordinators);
             
             // この担当者IDを持つ受講生を確認（自動割り当て）
             const matchedStudents = students.filter(s => s.coordinatorId === id);
@@ -5917,7 +5935,7 @@
             coordinators[coordinatorIndex].name = name;
             coordinators[coordinatorIndex].password = password;
             
-            localStorage.setItem('coordinators', JSON.stringify(coordinators));
+            saveData('coordinators', coordinators);
             
             showAlert('担当者情報を更新しました', 'success');
             closeModal();
@@ -5953,7 +5971,7 @@
                 }
             });
             
-            localStorage.setItem('coordinators', JSON.stringify(coordinators));
+            saveData('coordinators', coordinators);
             saveData('students', students);
             
             showAlert(`担当者「${coordinator.name}」を削除しました`, 'success');
@@ -6425,10 +6443,9 @@
                 type: 'attendance'
             };
             
-            // ローカルストレージに記録を保存
-            let attendanceRecords = JSON.parse(localStorage.getItem('attendanceRecords') || '[]');
+            // 同席記録を保存
             attendanceRecords.push(attendanceRecord);
-            localStorage.setItem('attendanceRecords', JSON.stringify(attendanceRecords));
+            saveData('attendanceRecords', attendanceRecords);
             
             showAlert(`${coordinatorName}がレッスンに同席参加しました`, 'success');
             
@@ -6485,9 +6502,8 @@
             };
 
             // 同席依頼を保存
-            let attendanceRequests = JSON.parse(localStorage.getItem('attendanceRequests') || '[]');
             attendanceRequests.push(attendanceRequest);
-            localStorage.setItem('attendanceRequests', JSON.stringify(attendanceRequests));
+            saveData('attendanceRequests', attendanceRequests);
 
             showAlert('コーディネーターに同席依頼を送信しました', 'success');
         }
@@ -6887,6 +6903,121 @@
             }
         }
         
+        // 2-2. 出席・評価データを自動送信（サイレントモード）
+        async function autoSendAttendanceToGoogleSheets() {
+            const appsScriptUrl = getAppsScriptUrl();
+            
+            // Apps Script URLが未設定の場合は何もしない（エラーも表示しない）
+            if (!appsScriptUrl) {
+                console.log('Apps Script URL未設定のため、自動送信をスキップします');
+                return;
+            }
+            
+            try {
+                console.log('出席・評価データを自動送信中...');
+                
+                // レッスンごとの出席・評価データを作成
+                const attendanceData = [];
+                
+                lessons.forEach(lesson => {
+                    // このレッスンの予約を取得
+                    const lessonBookings = bookings.filter(b => b.lessonId === lesson.id);
+                    
+                    lessonBookings.forEach(booking => {
+                        const student = students.find(s => s.id === booking.studentId);
+                        if (!student) return;
+                        
+                        // 受講生の評価を取得
+                        const rating = ratings.find(r => 
+                            r.lessonId === lesson.id && r.studentId === booking.studentId
+                        );
+                        
+                        // 講師からの評価を取得
+                        const instructorRating = instructorRatings.find(r => 
+                            r.lessonId === lesson.id && r.studentId === booking.studentId
+                        );
+                        
+                        // 出席・欠席の判定
+                        let attended = false;
+                        let absent = false;
+                        
+                        if (instructorRating) {
+                            if (instructorRating.attitude === '不参加') {
+                                absent = true;
+                            } else {
+                                attended = true;
+                            }
+                        } else if (rating && rating.rating > 0) {
+                            attended = true;
+                        }
+                        
+                        // 評価テキストの作成
+                        let evaluationText = '';
+                        if (rating && rating.rating > 0) {
+                            evaluationText = `受講生評価: ${'★'.repeat(rating.rating)}${'☆'.repeat(5 - rating.rating)} (${rating.rating}/5)`;
+                            if (rating.comment) {
+                                evaluationText += `\n受講生コメント: ${rating.comment}`;
+                            }
+                        }
+                        if (instructorRating) {
+                            if (evaluationText) evaluationText += '\n\n';
+                            evaluationText += `講師評価: ${instructorRating.attitude}`;
+                            if (instructorRating.level) {
+                                evaluationText += ` (日本語レベル: ${instructorRating.level})`;
+                            }
+                            if (instructorRating.notes) {
+                                evaluationText += `\n講師コメント: ${instructorRating.notes}`;
+                            }
+                        }
+                        
+                        // 担当者情報を取得
+                        const coordinator = student.coordinatorId ? 
+                            coordinators.find(c => c.id === student.coordinatorId) : null;
+                        const coordinatorName = coordinator ? coordinator.name : '';
+                        
+                        attendanceData.push({
+                            lessonDate: lesson.date,
+                            studentId: student.id,
+                            studentName: student.name,
+                            coordinator: coordinatorName,
+                            attended: attended,
+                            absent: absent,
+                            evaluation: evaluationText
+                        });
+                    });
+                });
+                
+                if (attendanceData.length === 0) {
+                    console.log('送信するデータがありません');
+                    return;
+                }
+                
+                // スプレッドシートに送信
+                const response = await fetch(appsScriptUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain',
+                    },
+                    body: JSON.stringify({
+                        action: 'writeAttendance',
+                        data: attendanceData
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log(`✅ 自動送信完了: ${result.count}件の出席・評価データを送信しました`);
+                } else {
+                    console.error('自動送信エラー:', result.error);
+                }
+                
+            } catch (error) {
+                // エラーが発生してもユーザーには表示せず、コンソールに記録のみ
+                console.error('自動送信中にエラーが発生しました:', error);
+            }
+        }
+        
         // 3. ステータス変更者（求人中でなくなった人）を削除
         async function removeInactiveStudents() {
             const appsScriptUrl = getAppsScriptUrl();
@@ -6953,10 +7084,8 @@ ${inactiveStudents.map(s => `・${s.id}: ${s.name}`).join('\n')}
                     instructorRatings = instructorRatings.filter(r => r.studentId !== studentId);
                     
                     // 同席依頼も削除
-                    if (typeof attendanceRequests !== 'undefined') {
-                        attendanceRequests = attendanceRequests.filter(r => r.studentId !== studentId);
-                        localStorage.setItem('attendanceRequests', JSON.stringify(attendanceRequests));
-                    }
+                    attendanceRequests = attendanceRequests.filter(r => r.studentId !== studentId);
+                    saveData('attendanceRequests', attendanceRequests);
                 });
                 
                 // LocalStorageを更新
