@@ -6310,6 +6310,74 @@
             showAlert('レッスンが更新されました', 'success');
         }
 
+        // モーダルからレッスン削除
+        function deleteLessonFromModal() {
+            if (!currentEditingLessonId) return;
+            
+            const lesson = lessons.find(l => l.id === currentEditingLessonId);
+            if (!lesson) {
+                showAlert('レッスンが見つかりません', 'error');
+                return;
+            }
+            
+            // 予約数を確認
+            const bookingCount = bookings.filter(b => b.lessonId === currentEditingLessonId).length;
+            const confirmMessage = bookingCount > 0 
+                ? `このレッスンを削除しますか？\n${bookingCount}件の予約と関連データも削除されます。`
+                : 'このレッスンを削除しますか？';
+            
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            // レッスンを削除
+            const lessonIndex = lessons.findIndex(l => l.id === currentEditingLessonId);
+            if (lessonIndex !== -1) {
+                lessons.splice(lessonIndex, 1);
+            }
+            
+            // 関連データを削除
+            bookings = bookings.filter(b => b.lessonId !== currentEditingLessonId);
+            ratings = ratings.filter(r => r.lessonId !== currentEditingLessonId);
+            instructorRatings = instructorRatings.filter(r => r.lessonId !== currentEditingLessonId);
+            
+            // 同席依頼・同席記録も削除
+            if (typeof attendanceRequests !== 'undefined') {
+                attendanceRequests = attendanceRequests.filter(req => req.lessonId !== currentEditingLessonId);
+                saveData('attendanceRequests', attendanceRequests);
+            }
+            if (typeof attendanceRecords !== 'undefined') {
+                attendanceRecords = attendanceRecords.filter(rec => rec.lessonId !== currentEditingLessonId);
+                saveData('attendanceRecords', attendanceRecords);
+            }
+            
+            // ローカルストレージに保存
+            saveData('lessons', lessons);
+            saveData('bookings', bookings);
+            saveData('ratings', ratings);
+            saveData('instructorRatings', instructorRatings);
+            
+            // データベースに同期
+            syncAllDataToDatabase();
+            
+            // 表示を更新
+            updateCreatedLessons();
+            updateCalendar();
+            
+            // 統計情報も更新
+            if (typeof updateCoordinatorDashboard === 'function') {
+                updateCoordinatorDashboard();
+            }
+            if (typeof updateAllEvaluations === 'function') {
+                updateAllEvaluations();
+            }
+            
+            // モーダルを閉じる
+            closeLessonEditModal();
+            
+            showAlert('レッスンと関連データを削除しました', 'success');
+        }
+
         // ページ更新関数
         async function refreshPage() {
             if (USE_DATABASE && DATABASE_API_URL) {
@@ -7260,6 +7328,7 @@ ${inactiveStudents.map(s => `・${s.id}: ${s.name}`).join('\n')}
                 </div>
             </div>
             <div class="modal-footer">
+                <button class="btn btn-danger" onclick="deleteLessonFromModal()" style="margin-right: auto;">削除</button>
                 <button class="btn btn-secondary" onclick="closeLessonEditModal()">キャンセル</button>
                 <button class="btn btn-primary" onclick="saveLessonEdit()">保存</button>
             </div>
