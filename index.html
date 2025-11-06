@@ -4029,7 +4029,7 @@
         }
 
         // レッスン予約
-        function bookLesson(lessonId) {
+        async function bookLesson(lessonId) {
             const lesson = lessons.find(l => l.id === lessonId);
             if (!lesson) return;
             
@@ -4061,7 +4061,9 @@
             
             saveData('bookings', bookings);
             saveData('lessons', lessons);
-            syncAllDataToDatabase();  // データベースに同期
+            
+            // データベースに同期してからUI更新
+            await syncAllDataToDatabase();
             
             updateAvailableLessons();
             updateBookedLessons();
@@ -4069,7 +4071,7 @@
         }
 
         // 予約キャンセル
-        function cancelBooking(bookingId) {
+        async function cancelBooking(bookingId) {
             const bookingIndex = bookings.findIndex(b => b.id === bookingId);
             if (bookingIndex === -1) return;
             
@@ -4084,7 +4086,9 @@
             
             saveData('bookings', bookings);
             saveData('lessons', lessons);
-            syncAllDataToDatabase();  // データベースに同期
+            
+            // データベースに同期してからUI更新
+            await syncAllDataToDatabase();
             
             updateAvailableLessons();
             updateBookedLessons();
