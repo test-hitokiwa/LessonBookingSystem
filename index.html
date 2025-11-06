@@ -3609,8 +3609,10 @@
                     ${lesson.onlineLink ? '<div><strong>オンラインリンク:</strong> <a href="' + lesson.onlineLink + '" target="_blank" style="color: white;">' + lesson.onlineLink + '</a></div>' : ''}
                     ${bookedStudents.length > 0 ? '<div class="student-list"><h5>予約済み受講生:</h5>' + bookedStudents.map(booking => {
                         const student = students.find(s => s.id === booking.studentId);
+                        const coordinator = student && student.coordinatorId ? coordinators.find(c => c.id === student.coordinatorId) : null;
                         const rating = ratings.find(r => r.lessonId === lesson.id && r.studentId === booking.studentId);
-                        return '<div class="student-item"><span>' + (student ? student.name : 'Unknown') + ' (' + (student ? student.level : 'N/A') + ')</span>' + 
+                        const studentInfo = student ? `${student.id} - ${student.name}${coordinator ? ' (' + coordinator.name + ')' : ' (担当者未設定)'}` : 'Unknown';
+                        return '<div class="student-item"><span>' + studentInfo + '</span>' + 
                                (rating ? '<span class="rating-stars">' + '★'.repeat(rating.rating) + '☆'.repeat(5-rating.rating) + '</span>' : '') + '</div>';
                     }).join('') + '</div>' : ''}
                     <div class="lesson-actions" style="margin-top: 10px;">
@@ -4750,8 +4752,10 @@
                         <h5>予約済み受講生:</h5>
                         ${lessonBookings.map(booking => {
                             const student = students.find(s => s.id === booking.studentId);
+                            const coordinator = student && student.coordinatorId ? coordinators.find(c => c.id === student.coordinatorId) : null;
                             const studentName = booking.studentName || (student ? student.name : 'Unknown');
-                            return `<div class="student-item"><span>${booking.studentId}：${studentName}</span></div>`;
+                            const coordinatorName = coordinator ? coordinator.name : '担当者未設定';
+                            return `<div class="student-item"><span>${booking.studentId} - ${studentName} (${coordinatorName})</span></div>`;
                         }).join('')}
                     </div>
                 ` : ''}
@@ -4793,11 +4797,13 @@
                                 <div class="student-list-detail">
                                     ${lessonBookings.map(booking => {
                                         const student = students.find(s => s.id === booking.studentId);
+                                        const coordinator = student && student.coordinatorId ? coordinators.find(c => c.id === student.coordinatorId) : null;
                                         const studentName = booking.studentName || (student ? student.name : 'Unknown');
+                                        const coordinatorName = coordinator ? coordinator.name : '担当者未設定';
                                         const studentRating = lessonRatings.find(r => r.studentId === booking.studentId);
                                         return `
                                             <div class="student-detail-item">
-                                                <span>${booking.studentId}：${studentName}</span>
+                                                <span>${booking.studentId} - ${studentName} (${coordinatorName})</span>
                                                 ${studentRating ? `<span class="rating">評価: ${'★'.repeat(studentRating.rating)}${'☆'.repeat(5 - studentRating.rating)}</span>` : '<span class="no-rating">評価なし</span>'}
                                             </div>
                                         `;
@@ -6198,6 +6204,19 @@
             
             currentEditingLessonId = lessonId;
             
+            // 講師ドロップダウンを更新
+            const instructorSelect = document.getElementById('edit-lesson-instructor');
+            instructorSelect.innerHTML = '';
+            instructors.forEach(instructor => {
+                const option = document.createElement('option');
+                option.value = instructor.id;
+                option.textContent = `${instructor.name} (${instructor.id})`;
+                if (instructor.id === lesson.instructorId) {
+                    option.selected = true;
+                }
+                instructorSelect.appendChild(option);
+            });
+            
             // モーダルに現在の値を設定
             document.getElementById('edit-lesson-content').value = lesson.content;
             document.getElementById('edit-lesson-date').value = lesson.date;
@@ -6228,6 +6247,7 @@
             }
             
             // フォームから値を取得
+            const newInstructorId = document.getElementById('edit-lesson-instructor').value;
             const newContent = document.getElementById('edit-lesson-content').value.trim();
             const newDate = document.getElementById('edit-lesson-date').value;
             const newTime = document.getElementById('edit-lesson-time').value;
@@ -6237,6 +6257,10 @@
             const newOnlineLink = document.getElementById('edit-lesson-online-link').value.trim();
             
             // バリデーション
+            if (!newInstructorId) {
+                showAlert('講師を選択してください', 'error');
+                return;
+            }
             if (!newContent) {
                 showAlert('レッスン内容を入力してください', 'error');
                 return;
@@ -6254,7 +6278,16 @@
                 return;
             }
             
+            // 講師情報を取得
+            const newInstructor = instructors.find(i => i.id === newInstructorId);
+            if (!newInstructor) {
+                showAlert('講師が見つかりません', 'error');
+                return;
+            }
+            
             // レッスンを更新
+            lesson.instructorId = newInstructorId;
+            lesson.instructorName = newInstructor.name;
             lesson.content = newContent;
             lesson.date = newDate;
             lesson.time = newTime;
@@ -6265,6 +6298,7 @@
             
             // ローカルストレージに保存
             saveData('lessons', lessons);
+            syncAllDataToDatabase();  // データベースに同期
             
             // 表示を更新
             updateCreatedLessons();
@@ -6444,10 +6478,12 @@
                             <div class="bookings-list">
                                 ${bookings.map(booking => {
                                     const student = students.find(s => s.id === booking.studentId);
+                                    const coordinator = student && student.coordinatorId ? coordinators.find(c => c.id === student.coordinatorId) : null;
                                     const studentName = booking.studentName || (student ? student.name : '不明な受講生');
+                                    const coordinatorName = coordinator ? coordinator.name : '担当者未設定';
                                     return `
                                     <div style="margin: 5px 0; padding: 8px; background: rgba(255, 255, 255, 0.15); border-radius: 5px;">
-                                        <span>${booking.studentId}：${studentName}</span>
+                                        <span>${booking.studentId} - ${studentName} (${coordinatorName})</span>
                                     </div>
                                     `;
                                 }).join('')}
@@ -6659,10 +6695,12 @@
                             '<p style="color: #666;">まだ予約はありません</p>' : 
                             lessonBookings.map(booking => {
                                 const student = students.find(s => s.id === booking.studentId);
+                                const coordinator = student && student.coordinatorId ? coordinators.find(c => c.id === student.coordinatorId) : null;
                                 const studentName = booking.studentName || (student ? student.name : '不明な受講生');
+                                const coordinatorName = coordinator ? coordinator.name : '担当者未設定';
                                 return `
                                 <div style="padding: 8px 12px; background: rgba(255, 255, 255, 0.8); border-radius: 5px; margin: 5px 0;">
-                                    <span style="color: #333;">${booking.studentId}：${studentName}</span>
+                                    <span style="color: #333;">${booking.studentId} - ${studentName} (${coordinatorName})</span>
                                 </div>
                                 `;
                             }).join('')
@@ -7157,6 +7195,12 @@ ${inactiveStudents.map(s => `・${s.id}: ${s.name}`).join('\n')}
                 <span class="close" onclick="closeLessonEditModal()">&times;</span>
             </div>
             <div id="lesson-edit-modal-body">
+                <div class="form-group">
+                    <label>講師 (Instructor)</label>
+                    <select id="edit-lesson-instructor">
+                        <!-- 講師リストが動的に追加される -->
+                    </select>
+                </div>
                 <div class="form-group">
                     <label>レッスン内容 (Lesson Content)</label>
                     <input type="text" id="edit-lesson-content" placeholder="レッスン内容を入力">
