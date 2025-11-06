@@ -3606,7 +3606,7 @@
                         <span>レベル: ${lesson.level}</span>
                         <span>予約数: ${bookedStudents.length}/${lesson.capacity}</span>
                     </div>
-                    ${lesson.onlineLink ? '<div><strong>オンラインリンク:</strong> <a href="' + lesson.onlineLink + '" target="_blank" style="color: white;">' + lesson.onlineLink + '</a></div>' : ''}
+                    ${lesson.onlineLink ? '<div><strong>オンラインリンク:</strong> <a href="' + lesson.onlineLink + '" target="_blank" style="color: #1e90ff; text-decoration: underline; font-weight: bold;">' + lesson.onlineLink + '</a></div>' : ''}
                     ${bookedStudents.length > 0 ? '<div class="student-list"><h5>予約済み受講生:</h5>' + bookedStudents.map(booking => {
                         const student = students.find(s => s.id === booking.studentId);
                         const coordinator = student && student.coordinatorId ? coordinators.find(c => c.id === student.coordinatorId) : null;
@@ -3730,7 +3730,7 @@
                         <span>所要時間: ${lesson.duration}分</span>
                         <span>予約日時: ${new Date(booking.bookedAt).toLocaleString()}</span>
                     </div>
-                    ${lesson.onlineLink ? `<div><strong>オンラインリンク:</strong> <a href="${lesson.onlineLink}" target="_blank" style="color: white;">参加する</a></div>` : ''}
+                    ${lesson.onlineLink ? `<div><strong>オンラインリンク:</strong> <a href="${lesson.onlineLink}" target="_blank" style="color: #1e90ff; text-decoration: underline; font-weight: bold;">参加する</a></div>` : ''}
                     <div style="margin-top: 10px;">
                         ${canCancel ? `<button class="btn btn-danger" onclick="cancelBooking('${booking.id}')">キャンセル</button>` : ''}
 
