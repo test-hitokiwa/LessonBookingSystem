@@ -4061,6 +4061,7 @@
             
             saveData('bookings', bookings);
             saveData('lessons', lessons);
+            syncAllDataToDatabase();  // データベースに同期
             
             updateAvailableLessons();
             updateBookedLessons();
@@ -4083,7 +4084,7 @@
             
             saveData('bookings', bookings);
             saveData('lessons', lessons);
-            syncAllData();  // データベースに同期
+            syncAllDataToDatabase();  // データベースに同期
             
             updateAvailableLessons();
             updateBookedLessons();
