@@ -6228,6 +6228,29 @@
             // 時間選択肢を設定
             document.getElementById('edit-lesson-time').value = lesson.time;
             
+            // 予約済み受講生を表示
+            const bookingsList = document.getElementById('edit-lesson-bookings-list');
+            const lessonBookings = bookings.filter(b => b.lessonId === lessonId);
+            
+            if (lessonBookings.length === 0) {
+                bookingsList.innerHTML = '<p style="color: #999; font-style: italic;">予約はありません</p>';
+            } else {
+                bookingsList.innerHTML = lessonBookings.map(booking => {
+                    const student = students.find(s => s.id === booking.studentId);
+                    const coordinator = student && student.coordinatorId ? coordinators.find(c => c.id === student.coordinatorId) : null;
+                    const studentName = student ? student.name : 'Unknown';
+                    const coordinatorName = coordinator ? coordinator.name : '担当者未設定';
+                    const studentInfo = `${booking.studentId} - ${studentName} (${coordinatorName})`;
+                    
+                    return `
+                        <div style="padding: 8px; margin-bottom: 8px; background: rgba(255,255,255,0.15); border-radius: 6px; border-left: 3px solid #667eea;">
+                            <div style="font-weight: bold;">${studentInfo}</div>
+                            <div style="font-size: 0.85em; color: #ccc; margin-top: 4px;">予約日時: ${new Date(booking.bookedAt).toLocaleString('ja-JP')}</div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
             // モーダルを表示
             document.getElementById('lesson-edit-modal').style.display = 'block';
         }
@@ -7325,6 +7348,14 @@ ${inactiveStudents.map(s => `・${s.id}: ${s.name}`).join('\n')}
                 <div class="form-group">
                     <label>オンラインリンク (Online Link)</label>
                     <input type="url" id="edit-lesson-online-link" placeholder="https://example.com">
+                </div>
+                
+                <!-- 予約済み受講生リスト -->
+                <div class="form-group" id="edit-lesson-bookings-section" style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px; border: 1px solid rgba(255,255,255,0.2);">
+                    <label style="font-weight: bold; margin-bottom: 10px; display: block;">予約済み受講生 (Booked Students)</label>
+                    <div id="edit-lesson-bookings-list" style="max-height: 200px; overflow-y: auto;">
+                        <!-- 予約済み受講生が動的に追加される -->
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
