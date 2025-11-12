@@ -1453,9 +1453,9 @@
         </div>
 
         <div class="user-selector">
-            <button class="user-type-btn active" onclick="switchUserType('instructor')">講師 (Instructor)</button>
-            <button class="user-type-btn" onclick="switchUserType('student')">受講生 (Student)</button>
+            <button class="user-type-btn active" onclick="switchUserType('student')">受講生 (Student)</button>
             <button class="user-type-btn" onclick="switchUserType('coordinator')">受講生担当 (Coordinator)</button>
+            <button class="user-type-btn" onclick="switchUserType('instructor')">講師 (Instructor)</button>
             <button class="user-type-btn" onclick="switchUserType('admin')">管理者 (Administrator)</button>
         </div>
 
@@ -1514,7 +1514,7 @@
         </div>
 
         <!-- 講師用インターフェース -->
-        <div id="instructor-interface">
+        <div id="instructor-interface" class="hide">
             <button class="refresh-btn" onclick="refreshPage()" title="画面を更新">
                 更新
             </button>
@@ -1695,7 +1695,7 @@
         </div>
 
         <!-- 受講生用インターフェース（修正版） -->
-        <div id="student-interface" class="hide">
+        <div id="student-interface">
             <button class="refresh-btn" onclick="refreshPage()" title="画面を更新">
                 更新
             </button>
@@ -2038,8 +2038,8 @@
                             </div>
                             
                             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                <button class="btn btn-primary" onclick="syncStudentsFromGoogleSheets()" style="flex: 1; min-width: 200px;">
-                                    受講生を同期（ステータス: 求職中）
+                                <button class="btn btn-primary" onclick="syncStudentsFromGoogleSheets()" style="flex: 1; min-width: 200px; line-height: 1.4;">
+                                    受講生を同期<br><span style="font-size: 0.85em;">(ステータス: 求職中)</span>
                                 </button>
                                 <button class="btn btn-secondary" onclick="sendAttendanceToGoogleSheets()" style="flex: 1; min-width: 200px;">
                                     出席・評価データを送信
